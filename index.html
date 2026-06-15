@@ -355,6 +355,56 @@
     color: var(--accent);
   }
 
+  .component-panel-collapsed {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .component-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .component-summary h3 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .component-summary-name {
+    color: var(--text-dim);
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .component-icon-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .icon-btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+
   .setting-row {
     display: grid;
     grid-template-columns: 1fr 100px auto;
@@ -927,6 +977,7 @@ let suspensionFormState = {
   bikeId: null,
   fork: null,   // { name, settings: [{label, value}] }
   shock: null,  // { name, settings: [{label, value}] }
+  expanded: { fork: false, shock: false },
   comment: "",
   history: [],
   historyLoaded: false
@@ -946,6 +997,7 @@ function prefillFromHistory(history) {
   const latestShock = history.find(entry => entry.shock);
   suspensionFormState.fork = latestFork ? cloneComponent(latestFork.fork) : null;
   suspensionFormState.shock = latestShock ? cloneComponent(latestShock.shock) : null;
+  suspensionFormState.expanded = { fork: false, shock: false };
   suspensionFormState.comment = "";
 }
 
@@ -1030,7 +1082,34 @@ function renderHistoryList() {
   `).join("");
 }
 
+/* ---- Small inline icons ---- */
+const ICON_EDIT = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const ICON_MINIMIZE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>`;
+const ICON_REMOVE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>`;
+
 function renderComponentPanel(type, comp) {
+  const isExpanded = suspensionFormState.expanded[type];
+  return isExpanded ? renderComponentExpanded(type, comp) : renderComponentCollapsed(type, comp);
+}
+
+function renderComponentCollapsed(type, comp) {
+  const label = type === 'fork' ? 'Fork' : 'Shock';
+  const name = comp.name && comp.name.trim() ? comp.name : 'Not set';
+  return `
+    <div class="component-panel component-panel-collapsed">
+      <div class="component-summary">
+        <h3>${label}</h3>
+        <span class="component-summary-name">${escapeHtml(name)}</span>
+      </div>
+      <div class="component-icon-actions">
+        <button type="button" class="icon-btn" onclick="toggleComponentExpanded('${type}')" aria-label="Edit ${label}" title="Edit">${ICON_EDIT}</button>
+        <button type="button" class="icon-btn icon-btn-danger" onclick="removeComponent('${type}')" aria-label="Remove ${label}" title="Remove">${ICON_REMOVE}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderComponentExpanded(type, comp) {
   const presets = type === 'fork' ? FORK_PRESETS : SHOCK_PRESETS;
   const presetOptions = Object.keys(presets).map(name =>
     `<option value="${escapeHtml(name)}" ${comp.name === name ? "selected" : ""}>`
@@ -1046,14 +1125,19 @@ function renderComponentPanel(type, comp) {
     </div>
   `).join("");
 
+  const label = type === 'fork' ? 'Fork' : 'Shock';
+
   return `
     <div class="component-panel">
       <div class="component-panel-header">
-        <h3>${type === 'fork' ? 'Fork' : 'Shock'}</h3>
-        <button type="button" class="btn btn-danger-outline btn-small" onclick="removeComponent('${type}')">Remove</button>
+        <h3>${label}</h3>
+        <div class="component-icon-actions">
+          <button type="button" class="icon-btn" onclick="toggleComponentExpanded('${type}')" aria-label="Minimize ${label}" title="Minimize">${ICON_MINIMIZE}</button>
+          <button type="button" class="icon-btn icon-btn-danger" onclick="removeComponent('${type}')" aria-label="Remove ${label}" title="Remove">${ICON_REMOVE}</button>
+        </div>
       </div>
       <div class="field">
-        <label>${type === 'fork' ? 'Fork' : 'Shock'} Name</label>
+        <label>${label} Name</label>
         <input type="text" list="${type}-list" placeholder="Select or type your own…"
                value="${escapeHtml(comp.name)}"
                oninput="onComponentNameInput('${type}', this.value)">
@@ -1071,6 +1155,7 @@ window.onSuspensionBikeChange = async (bikeId) => {
     bikeId,
     fork: null,
     shock: null,
+    expanded: { fork: false, shock: false },
     comment: "",
     history: [],
     historyLoaded: false
@@ -1080,17 +1165,22 @@ window.onSuspensionBikeChange = async (bikeId) => {
 };
 
 window.addComponent = (type) => {
-  const presets = type === 'fork' ? FORK_PRESETS : SHOCK_PRESETS;
-  const firstPreset = Object.keys(presets)[0];
   suspensionFormState[type] = {
     name: "",
     settings: [{ label: "", value: "" }]
   };
+  suspensionFormState.expanded[type] = true;
   render();
 };
 
 window.removeComponent = (type) => {
   suspensionFormState[type] = null;
+  suspensionFormState.expanded[type] = false;
+  render();
+};
+
+window.toggleComponentExpanded = (type) => {
+  suspensionFormState.expanded[type] = !suspensionFormState.expanded[type];
   render();
 };
 
