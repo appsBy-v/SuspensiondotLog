@@ -544,7 +544,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
+  initializeAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  browserLocalPersistence, browserPopupRedirectResolver, indexedDBLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc
@@ -560,7 +561,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver
+});
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
@@ -675,16 +679,6 @@ async function addSuspensionLog(bikeId, data) {
 
 /* ============ AUTH ============ */
 
-// Catch the result of a redirect-based sign-in (mobile-friendly).
-getRedirectResult(auth).then((result) => {
-  if (result) {
-    console.log("Redirect sign-in success:", result.user.email);
-  }
-}).catch((e) => {
-  console.error("Redirect sign-in error:", e.code, e.message);
-  showToast("Sign-in error: " + (e.code || e.message));
-});
-
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -699,10 +693,16 @@ onAuthStateChanged(auth, async (user) => {
 
 window.handleSignIn = async () => {
   try {
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (e) {
     console.error("Sign-in error:", e.code, e.message);
-    showToast("Sign-in failed: " + (e.code || e.message));
+    if (e.code === "auth/popup-blocked") {
+      showToast("Popup blocked — allow popups for this site and try again");
+    } else if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
+      // User closed the popup themselves — no need to show an error
+    } else {
+      showToast("Sign-in failed: " + (e.code || e.message));
+    }
   }
 };
 
