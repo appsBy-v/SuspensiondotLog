@@ -541,9 +541,6 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- TEMPORARY DEBUG LOG — remove once mobile sign-in is confirmed working -->
-<div id="debug-log" style="position:fixed; bottom:0; left:0; right:0; max-height:40vh; overflow-y:auto; background:rgba(0,0,0,0.85); color:#c6f24e; font-family:monospace; font-size:11px; padding:8px; z-index:9999; display:none;"></div>
-
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -636,17 +633,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove("show"), 2200);
 }
 
-// TEMPORARY: visible debug log for diagnosing mobile auth — remove later.
-function debugLog(msg) {
-  const el = document.getElementById("debug-log");
-  if (!el) return;
-  el.style.display = "block";
-  const line = document.createElement("div");
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
-}
-
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -696,16 +682,12 @@ async function addSuspensionLog(bikeId, data) {
 
 /* ============ AUTH ============ */
 
-debugLog("Page loaded.");
-
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    debugLog("onAuthStateChanged: signed in as " + user.email);
     currentUser = user;
     await loadBikes();
     render();
   } else {
-    debugLog("onAuthStateChanged: signed out / no user");
     currentUser = null;
     userBikes = [];
     render();
@@ -717,13 +699,11 @@ onAuthStateChanged(auth, async (user) => {
 // popup/redirect flow entirely, which is unreliable in mobile browsers
 // (especially incognito) due to cross-domain storage restrictions.
 async function handleGoogleCredentialResponse(response) {
-  debugLog("Received Google ID token, exchanging for Firebase credential...");
   try {
     const credential = GoogleAuthProvider.credential(response.credential);
     await signInWithCredential(auth, credential);
-    debugLog("signInWithCredential succeeded");
   } catch (e) {
-    debugLog("signInWithCredential ERROR: " + (e.code || "") + " " + e.message);
+    console.error("Sign-in error:", e.code, e.message);
     showToast("Sign-in failed: " + (e.code || e.message));
   }
 }
@@ -733,7 +713,6 @@ let gisInitialized = false;
 function initGoogleSignIn() {
   if (gisInitialized) return;
   if (!window.google || !window.google.accounts) {
-    debugLog("Google Identity Services not loaded yet, retrying...");
     setTimeout(initGoogleSignIn, 300);
     return;
   }
@@ -743,7 +722,6 @@ function initGoogleSignIn() {
     auto_select: false
   });
   gisInitialized = true;
-  debugLog("Google Identity Services initialized");
   renderGoogleButton();
 }
 
