@@ -544,7 +544,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  initializeAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  initializeAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged,
   browserLocalPersistence, browserPopupRedirectResolver, indexedDBLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -679,6 +680,16 @@ async function addSuspensionLog(bikeId, data) {
 
 /* ============ AUTH ============ */
 
+// Mobile browsers generally don't support Firebase's popup-based sign-in
+// (window.open for cross-origin auth gets blocked). Use redirect there.
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Pick up the result of a redirect-based sign-in, if one is pending.
+getRedirectResult(auth).catch((e) => {
+  console.error("Redirect sign-in error:", e.code, e.message);
+  showToast("Sign-in error: " + (e.code || e.message));
+});
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -693,7 +704,13 @@ onAuthStateChanged(auth, async (user) => {
 
 window.handleSignIn = async () => {
   try {
-    await signInWithPopup(auth, provider);
+    if (IS_MOBILE) {
+      await signInWithRedirect(auth, provider);
+      // Page navigates away here; onAuthStateChanged + getRedirectResult
+      // handle the rest after the redirect back.
+    } else {
+      await signInWithPopup(auth, provider);
+    }
   } catch (e) {
     console.error("Sign-in error:", e.code, e.message);
     if (e.code === "auth/popup-blocked") {
