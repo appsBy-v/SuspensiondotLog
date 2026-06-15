@@ -494,7 +494,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc
@@ -624,6 +624,13 @@ async function addSuspensionLog(bikeId, data) {
 
 /* ============ AUTH ============ */
 
+// Catch the result of a redirect-based sign-in (mobile-friendly).
+// Errors here are non-fatal — onAuthStateChanged below will still fire
+// correctly once Firebase resolves the session.
+getRedirectResult(auth).catch((e) => {
+  console.warn("Redirect sign-in error:", e.message);
+});
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -638,7 +645,7 @@ onAuthStateChanged(auth, async (user) => {
 
 window.handleSignIn = async () => {
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch (e) {
     showToast("Sign-in failed: " + e.message);
   }
@@ -823,8 +830,8 @@ function renderBikesPage() {
             </div>
           </div>
           <div class="field">
-            <label for="bike-nickname">Nickname</label>
-            <input type="text" id="bike-nickname" placeholder="e.g. The Green Machine" value="${escapeHtml(bike.nickname)}" required>
+            <label for="bike-nickname">Nickname <span style="text-transform:none; font-weight:400; color:var(--text-dim);">(optional)</span></label>
+            <input type="text" id="bike-nickname" placeholder="e.g. The Green Machine — defaults to '24 Model" value="${escapeHtml(bike.nickname)}">
           </div>
           <div style="display:flex; gap:10px; margin-top:6px;">
             <button type="submit" class="btn btn-primary ${userBikes.length > 0 ? '' : 'btn-block'}">${editingBike ? "Save Changes" : "Add Bike"}</button>
@@ -878,9 +885,13 @@ window.saveBikeForm = async (e) => {
   const year = document.getElementById("bike-year").value.trim();
   const brand = document.getElementById("bike-brand").value.trim();
   const model = document.getElementById("bike-model").value.trim();
-  const nickname = document.getElementById("bike-nickname").value.trim();
+  let nickname = document.getElementById("bike-nickname").value.trim();
 
-  if (!year || !brand || !model || !nickname) return;
+  if (!year || !brand || !model) return;
+  if (!nickname) {
+    const shortYear = year.length === 4 ? year.slice(2) : year;
+    nickname = `'${shortYear} ${model}`;
+  }
 
   if (id) {
     const bike = userBikes.find(b => b.id === id);
@@ -921,6 +932,23 @@ let suspensionFormState = {
   historyLoaded: false
 };
 
+function cloneComponent(comp) {
+  if (!comp) return null;
+  return {
+    name: comp.name,
+    settings: comp.settings.map(s => ({ label: s.label, value: s.value }))
+  };
+}
+
+// Populate fork/shock form state from the most recent history entry for this bike.
+function prefillFromHistory(history) {
+  const latestFork = history.find(entry => entry.fork);
+  const latestShock = history.find(entry => entry.shock);
+  suspensionFormState.fork = latestFork ? cloneComponent(latestFork.fork) : null;
+  suspensionFormState.shock = latestShock ? cloneComponent(latestShock.shock) : null;
+  suspensionFormState.comment = "";
+}
+
 function renderSuspensionPage() {
   if (userBikes.length === 0) {
     return `
@@ -942,6 +970,8 @@ function renderSuspensionPage() {
     `<option value="${b.id}" ${b.id === suspensionFormState.bikeId ? "selected" : ""}>${escapeHtml(b.nickname)} (${escapeHtml(b.year)} ${escapeHtml(b.brand)} ${escapeHtml(b.model)})</option>`
   ).join("");
 
+  const loadingForm = !suspensionFormState.historyLoaded;
+
   return `
     <h1>Suspension</h1>
     <p class="page-sub">Fork &amp; shock setup</p>
@@ -953,6 +983,20 @@ function renderSuspensionPage() {
       </select>
     </div>
 
+    <div id="suspension-form-area">
+      ${loadingForm ? `<div class="empty-state">Loading your last saved settings…</div>` : renderSuspensionForm()}
+    </div>
+
+    <hr class="section-divider">
+    <h2 class="card-title" style="font-size:16px; margin-bottom:14px;">History — ${escapeHtml(bike.nickname)}</h2>
+    <div id="history-container">
+      ${loadingForm ? `<div class="empty-state">Loading history…</div>` : renderHistoryList()}
+    </div>
+  `;
+}
+
+function renderSuspensionForm() {
+  return `
     <div class="add-component-row">
       ${!suspensionFormState.fork ? `<button class="btn btn-secondary" onclick="addComponent('fork')">+ Add Fork</button>` : ""}
       ${!suspensionFormState.shock ? `<button class="btn btn-secondary" onclick="addComponent('shock')">+ Add Shock</button>` : ""}
@@ -964,17 +1008,26 @@ function renderSuspensionPage() {
     ${(suspensionFormState.fork || suspensionFormState.shock) ? `
       <div class="card">
         <label for="suspension-comment">Comments</label>
-        <textarea id="suspension-comment" placeholder="How did it feel? Any notes for next time…" oninput="suspensionFormState.comment = this.value"></textarea>
+        <textarea id="suspension-comment" placeholder="How did it feel? Any notes for next time…" oninput="suspensionFormState.comment = this.value">${escapeHtml(suspensionFormState.comment)}</textarea>
         <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="submitSuspensionLog()">Save Settings</button>
       </div>
     ` : ""}
-
-    <hr class="section-divider">
-    <h2 class="card-title" style="font-size:16px; margin-bottom:14px;">History — ${escapeHtml(bike.nickname)}</h2>
-    <div id="history-container">
-      <div class="empty-state">Loading history…</div>
-    </div>
   `;
+}
+
+function renderHistoryList() {
+  const history = suspensionFormState.history;
+  if (history.length === 0) {
+    return `<div class="empty-state">No saved settings yet. Add a fork or shock above to start your log.</div>`;
+  }
+  return history.map(entry => `
+    <div class="ledger-entry">
+      <div class="ledger-date">${formatDate(entry.timestamp)}</div>
+      ${entry.fork ? renderLedgerSpec("Fork", entry.fork) : ""}
+      ${entry.shock ? renderLedgerSpec("Shock", entry.shock) : ""}
+      ${entry.comment ? `<div class="ledger-comment">"${escapeHtml(entry.comment)}"</div>` : ""}
+    </div>
+  `).join("");
 }
 
 function renderComponentPanel(type, comp) {
@@ -1023,7 +1076,7 @@ window.onSuspensionBikeChange = async (bikeId) => {
     historyLoaded: false
   };
   render();
-  await loadAndRenderHistory();
+  await loadHistoryAndPrefill();
 };
 
 window.addComponent = (type) => {
@@ -1097,42 +1150,27 @@ window.submitSuspensionLog = async () => {
     await addSuspensionLog(bikeId, logData);
     showToast("Settings saved");
 
-    // Reset form but keep bike selection
-    suspensionFormState.fork = null;
-    suspensionFormState.shock = null;
-    suspensionFormState.comment = "";
+    // Reload history and re-prefill the form with the just-saved settings
+    // (comment is cleared as part of prefill).
+    await loadHistoryAndPrefill();
     render();
-    await loadAndRenderHistory();
   } catch (e) {
     showToast("Save failed: " + e.message);
   }
 };
 
-async function loadAndRenderHistory() {
-  const container = document.getElementById("history-container");
-  if (!container) return;
-
+async function loadHistoryAndPrefill() {
   try {
     const history = await loadSuspensionHistory(suspensionFormState.bikeId);
     suspensionFormState.history = history;
     suspensionFormState.historyLoaded = true;
-
-    if (history.length === 0) {
-      container.innerHTML = `<div class="empty-state">No saved settings yet. Add a fork or shock above to start your log.</div>`;
-      return;
-    }
-
-    container.innerHTML = history.map(entry => `
-      <div class="ledger-entry">
-        <div class="ledger-date">${formatDate(entry.timestamp)}</div>
-        ${entry.fork ? renderLedgerSpec("Fork", entry.fork) : ""}
-        ${entry.shock ? renderLedgerSpec("Shock", entry.shock) : ""}
-        ${entry.comment ? `<div class="ledger-comment">"${escapeHtml(entry.comment)}"</div>` : ""}
-      </div>
-    `).join("");
+    prefillFromHistory(history);
   } catch (e) {
-    container.innerHTML = `<div class="empty-state">Couldn't load history: ${escapeHtml(e.message)}</div>`;
+    suspensionFormState.history = [];
+    suspensionFormState.historyLoaded = true;
+    showToast("Couldn't load history: " + e.message);
   }
+  render();
 }
 
 function renderLedgerSpec(label, comp) {
@@ -1156,8 +1194,8 @@ function renderLedgerSpec(label, comp) {
 /* ============ AFTER RENDER HOOKS ============ */
 
 function afterRender() {
-  if (currentRoute === "suspension" && userBikes.length > 0) {
-    loadAndRenderHistory();
+  if (currentRoute === "suspension" && userBikes.length > 0 && !suspensionFormState.historyLoaded) {
+    loadHistoryAndPrefill();
   }
 }
 
