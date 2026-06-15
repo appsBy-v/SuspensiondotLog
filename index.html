@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Suspension Log</title>
+<style>
+  :root {
+    --bg: #1a1c1a;
+    --panel: #242824;
+    --panel-raised: #2d322d;
+    --line: #3a3f3a;
+    --text: #e8ebe6;
+    --text-dim: #9aa39a;
+    --accent: #c6f24e;
+    --accent-dim: #8fa83a;
+    --danger: #e0654f;
+    --font-display: 'Archivo Black', Impact, sans-serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topbar .brand {
+    font-family: var(--font-display);
+    font-size: 18px;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .brand .dot { color: var(--accent); }
+
+  .menu-btn {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .menu-btn span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--text);
+  }
+
+  /* ===== NAV DRAWER ===== */
+  .drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .drawer-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .drawer {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100%;
+    width: 250px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 0;
+  }
+  .drawer.open { transform: translateX(0); }
+
+  .drawer-header {
+    padding: 0 18px 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+  .drawer-header .brand { font-family: var(--font-display); font-size: 18px; text-transform: uppercase; }
+
+  .drawer a, .drawer button.nav-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--font-body);
+    font-size: 15px;
+    padding: 13px 18px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .drawer a:hover, .drawer button.nav-link:hover,
+  .drawer a.active, .drawer button.nav-link.active {
+    background: var(--panel-raised);
+    border-left-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .drawer-footer {
+    margin-top: auto;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .drawer-footer .user-email { color: var(--text); display:block; margin-bottom: 8px; word-break: break-all; }
+  .signout-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .signout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ===== MAIN ===== */
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 18px 80px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 24px;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+  }
+  .page-sub {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 0 0 24px;
+  }
+
+  /* ===== LOGIN SCREEN ===== */
+  .login-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+  }
+  .login-screen .brand {
+    font-family: var(--font-display);
+    font-size: 42px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .login-screen .tagline {
+    color: var(--text-dim);
+    margin-bottom: 36px;
+    font-size: 15px;
+    max-width: 320px;
+  }
+  .google-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--text);
+    color: #1a1c1a;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 22px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .google-btn:hover { background: var(--accent); }
+  .google-btn svg { width: 18px; height: 18px; }
+
+  /* ===== CARDS / PANELS ===== */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+
+  /* ===== FORM ELEMENTS ===== */
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .field { margin-bottom: 16px; }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  @media (min-width: 480px) {
+    .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .field-row.cols-3 { grid-template-columns: 100px 1fr 1fr; }
+  }
+
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 11px 12px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    outline: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* datalist-driven combo inputs use input[type=text] + list attr */
+
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary { background: var(--accent); color: #1a1c1a; }
+  .btn-primary:hover { background: #d8ff70; }
+  .btn-secondary {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-block { width: 100%; }
+  .btn-small { padding: 7px 12px; font-size: 12px; }
+  .btn-danger-outline {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--danger);
+  }
+  .btn-danger-outline:hover { border-color: var(--danger); background: rgba(224,101,79,0.08); }
+
+  /* ===== BIKE LIST ===== */
+  .bike-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .bike-item-info .bike-nickname {
+    font-family: var(--font-display);
+    font-size: 16px;
+    text-transform: uppercase;
+    margin: 0 0 2px;
+  }
+  .bike-item-info .bike-meta {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 24px 0;
+  }
+
+  /* ===== SUSPENSION ===== */
+  .add-component-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .component-panel {
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .component-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+  .component-panel-header h3 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--accent);
+  }
+
+  .setting-row {
+    display: grid;
+    grid-template-columns: 1fr 100px auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .setting-row input { font-size: 14px; padding: 9px 10px; }
+  .setting-row input.value-input { font-family: var(--font-mono); text-align: center; }
+  .remove-row-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .remove-row-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .add-setting-btn {
+    background: none;
+    border: 1px dashed var(--line);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 9px;
+    width: 100%;
+    cursor: pointer;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .add-setting-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== HISTORY / LEDGER ===== */
+  .ledger-entry {
+    border-left: 2px solid var(--line);
+    padding: 4px 0 16px 16px;
+    margin-left: 6px;
+    position: relative;
+  }
+  .ledger-entry::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .ledger-entry .ledger-date {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .ledger-spec {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+  }
+  .ledger-spec .spec-line { display: flex; justify-content: space-between; padding: 2px 0; }
+  .ledger-spec .spec-label { color: var(--text-dim); }
+  .ledger-comment {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding-left: 2px;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 20px;
+    font-size: 14px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: #1a1c1a;
+    padding: 12px 22px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    z-index: 200;
+    transition: transform 0.25s ease;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .loading-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .news-item {
+    border-bottom: 1px solid var(--line);
+    padding: 16px 0;
+  }
+  .news-item:last-child { border-bottom: none; }
+  .news-item .news-date {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .news-item h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 15px; text-transform: uppercase; }
+  .news-item p { margin: 0; color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="loading-screen">Loading…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBZ9V_emrCS9OHe0SPKfKbtCl6VHLA5Cus",
+  authDomain: "suspensiondb.firebaseapp.com",
+  projectId: "suspensiondb",
+  storageBucket: "suspensiondb.firebasestorage.app",
+  messagingSenderId: "531090330610",
+  appId: "1:531090330610:web:b33727e1c54477ec88116b"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+/* ============ DATA: BRAND / MODEL / COMPONENT PRESETS ============ */
+
+const BIKE_BRANDS = {
+  "Specialized": ["Stumpjumper", "Epic", "Enduro", "Status", "Levo", "Fuse"],
+  "Trek": ["Fuel EX", "Slash", "Top Fuel", "Session", "Marlin", "Roscoe"],
+  "Santa Cruz": ["Tallboy", "Hightower", "Bronson", "Megatower", "Nomad", "5010"],
+  "Yeti": ["SB120", "SB140", "SB150", "SB165", "ARC"],
+  "Giant": ["Trance", "Reign", "Stance", "Anthem", "Trance X"],
+  "Canyon": ["Spectral", "Strive", "Torque", "Neuron", "Lux"],
+  "Pivot": ["Switchblade", "Firebird", "Trail 429", "Mach 4", "Shadowcat"],
+  "Ibis": ["Ripmo", "Mojo", "Ripley", "HD6"],
+  "Norco": ["Sight", "Range", "Optic", "Fluid"],
+  "Transition": ["Sentinel", "Spire", "Smuggler", "Patrol"],
+  "Cannondale": ["Habit", "Jekyll", "Scalpel", "Moterra"],
+  "Commencal": ["Meta", "Clash", "Supreme"],
+  "Kona": ["Process", "Honzo", "Hei Hei"],
+  "Polygon": ["Siskiu", "Collosus", "Xtrada"],
+  "YT": ["Jeffsy", "Capra", "Tues"],
+  "Marin": ["Rift Zone", "Hawk Hill", "Alpine Trail"]
+};
+
+const FORK_PRESETS = {
+  "Fox 36 Factory": ["Air Pressure (PSI)", "High Speed Compression (clicks)", "Low Speed Compression (clicks)", "Rebound (clicks)", "Spacers (#)"],
+  "Fox 38 Factory": ["Air Pressure (PSI)", "High Speed Compression (clicks)", "Low Speed Compression (clicks)", "Rebound (clicks)", "Spacers (#)"],
+  "Fox 34 Factory": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Spacers (#)"],
+  "RockShox Lyrik Ultimate": ["Air Pressure (PSI)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)", "Tokens (#)"],
+  "RockShox Zeb Ultimate": ["Air Pressure (PSI)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)", "Tokens (#)"],
+  "RockShox Pike Ultimate": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Tokens (#)"],
+  "RockShox SID": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)"],
+  "Öhlins RXF36": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Spacers (#)"],
+  "Marzocchi Z1": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Spacers (#)"],
+  "DVO Diamond": ["Air Pressure (PSI)", "LSC (clicks)", "HSC (clicks)", "Rebound (clicks)"]
+};
+
+const SHOCK_PRESETS = {
+  "Fox Float X Factory": ["Air Pressure (PSI)", "Low Speed Compression (clicks)", "Rebound (clicks)", "Volume Spacers (#)"],
+  "Fox DHX2 Factory": ["Spring Rate (lb)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)"],
+  "RockShox Super Deluxe Ultimate": ["Air Pressure (PSI)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)", "Volume Spacers (#)"],
+  "RockShox Vivid Ultimate": ["Air Pressure (PSI)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)", "Volume Spacers (#)"],
+  "Öhlins TTX2 Air": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Volume Spacers (#)"],
+  "Cane Creek DB Coil": ["Spring Rate (lb)", "Low Speed Compression (clicks)", "High Speed Compression (clicks)", "Rebound (clicks)"],
+  "EXT Storia": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)", "Volume Spacers (#)"],
+  "DVO Topaz": ["Air Pressure (PSI)", "Compression (clicks)", "Rebound (clicks)"]
+};
+
+/* ============ STATE ============ */
+
+let currentUser = null;
+let currentRoute = "home";
+let userBikes = []; // [{id, year, brand, model, nickname}]
+let activeBikeId = null;
+
+/* ============ HELPERS ============ */
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatDate(d) {
+  if (!d) return "";
+  const date = d instanceof Date ? d : new Date(d);
+  return date.toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+/* ============ FIRESTORE HELPERS ============ */
+
+async function loadBikes() {
+  const ref = doc(db, "users", currentUser.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists() && Array.isArray(snap.data().bikes)) {
+    userBikes = snap.data().bikes;
+  } else {
+    userBikes = [];
+  }
+}
+
+async function saveBikes() {
+  const ref = doc(db, "users", currentUser.uid);
+  await setDoc(ref, { bikes: userBikes, email: currentUser.email }, { merge: true });
+}
+
+async function loadSuspensionHistory(bikeId) {
+  const ref = collection(db, "users", currentUser.uid, "bikes", bikeId, "suspensionLogs");
+  const q = query(ref, orderBy("timestamp", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function addSuspensionLog(bikeId, data) {
+  const ref = collection(db, "users", currentUser.uid, "bikes", bikeId, "suspensionLogs");
+  await addDoc(ref, { ...data, timestamp: new Date().toISOString() });
+}
+
+/* ============ AUTH ============ */
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    await loadBikes();
+    render();
+  } else {
+    currentUser = null;
+    userBikes = [];
+    render();
+  }
+});
+
+window.handleSignIn = async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    showToast("Sign-in failed: " + e.message);
+  }
+};
+
+window.handleSignOut = async () => {
+  await signOut(auth);
+  currentRoute = "home";
+};
+
+/* ============ ROUTING ============ */
+
+window.navigate = (route) => {
+  currentRoute = route;
+  activeBikeId = null;
+  closeDrawer();
+  render();
+};
+
+window.toggleDrawer = () => {
+  document.getElementById("drawer").classList.toggle("open");
+  document.getElementById("drawer-overlay").classList.toggle("open");
+};
+
+function closeDrawer() {
+  document.getElementById("drawer")?.classList.remove("open");
+  document.getElementById("drawer-overlay")?.classList.remove("open");
+}
+
+/* ============ RENDER: ROOT ============ */
+
+function render() {
+  const appEl = document.getElementById("app");
+
+  if (currentUser === null && !auth.currentUser) {
+    // could still be loading; check explicitly
+  }
+
+  if (!currentUser) {
+    appEl.innerHTML = renderLogin();
+    return;
+  }
+
+  appEl.innerHTML = `
+    ${renderTopbar()}
+    ${renderDrawer()}
+    <div class="drawer-overlay" id="drawer-overlay" onclick="toggleDrawer()"></div>
+    <div class="container" id="page-content">
+      ${renderPage()}
+    </div>
+  `;
+
+  afterRender();
+}
+
+function renderLogin() {
+  return `
+    <div class="login-screen">
+      <div class="brand">Suspension<span style="color:var(--accent)">.</span>Log</div>
+      <p class="tagline">Track your bike's fork and shock setup, save changes over time, and never guess your settings again.</p>
+      <button class="google-btn" onclick="handleSignIn()">
+        <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+  `;
+}
+
+function renderTopbar() {
+  return `
+    <div class="topbar">
+      <button class="menu-btn" onclick="toggleDrawer()" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="brand">Suspension<span class="dot">.</span>Log</div>
+      <div style="width:40px"></div>
+    </div>
+  `;
+}
+
+function renderDrawer() {
+  const links = [
+    { id: "home", label: "Home" },
+    { id: "bikes", label: "Bikes" },
+    { id: "suspension", label: "Suspension" }
+  ];
+  return `
+    <div class="drawer" id="drawer">
+      <div class="drawer-header">
+        <div class="brand">Suspension<span style="color:var(--accent)">.</span>Log</div>
+      </div>
+      ${links.map(l => `
+        <button class="nav-link ${currentRoute === l.id ? "active" : ""}" onclick="navigate('${l.id}')">${l.label}</button>
+      `).join("")}
+      <div class="drawer-footer">
+        <span class="user-email">${escapeHtml(currentUser.email)}</span>
+        <button class="signout-btn" onclick="handleSignOut()">Sign out</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPage() {
+  switch (currentRoute) {
+    case "bikes": return renderBikesPage();
+    case "suspension": return renderSuspensionPage();
+    default: return renderHomePage();
+  }
+}
+
+/* ============ HOME PAGE ============ */
+
+function renderHomePage() {
+  const updates = [
+    {
+      date: "Jun 14, 2026",
+      title: "Welcome to Suspension Log",
+      body: "Track your bikes and keep a running history of every fork and shock setting change. Add a bike under the Bikes tab, then log your suspension setup under Suspension."
+    }
+  ];
+
+  return `
+    <h1>Home</h1>
+    <p class="page-sub">News and updates</p>
+    ${updates.map(u => `
+      <div class="news-item">
+        <div class="news-date">${u.date}</div>
+        <h3>${escapeHtml(u.title)}</h3>
+        <p>${escapeHtml(u.body)}</p>
+      </div>
+    `).join("")}
+  `;
+}
+
+/* ============ BIKES PAGE ============ */
+
+function renderBikesPage() {
+  const brandOptions = Object.keys(BIKE_BRANDS).map(b => `<option value="${escapeHtml(b)}">`).join("");
+
+  let bikeListHtml = "";
+  if (userBikes.length > 0) {
+    bikeListHtml = userBikes.map(bike => `
+      <div class="bike-item">
+        <div class="bike-item-info">
+          <p class="bike-nickname">${escapeHtml(bike.nickname)}</p>
+          <p class="bike-meta">${escapeHtml(bike.year)} ${escapeHtml(bike.brand)} ${escapeHtml(bike.model)}</p>
+        </div>
+        <button class="btn btn-secondary btn-small" onclick="editBike('${bike.id}')">Edit</button>
+      </div>
+    `).join("");
+  }
+
+  const editingBike = activeBikeId ? userBikes.find(b => b.id === activeBikeId) : null;
+  const showForm = userBikes.length === 0 || activeBikeId === "new" || editingBike;
+
+  let formHtml = "";
+  if (showForm) {
+    const bike = editingBike || { year: "", brand: "", model: "", nickname: "" };
+    const modelOptions = bike.brand && BIKE_BRANDS[bike.brand]
+      ? BIKE_BRANDS[bike.brand].map(m => `<option value="${escapeHtml(m)}">`).join("")
+      : "";
+
+    formHtml = `
+      <div class="card">
+        <h2 class="card-title">${editingBike ? "Edit Bike" : "Add a Bike"}</h2>
+        <form id="bike-form" onsubmit="saveBikeForm(event)">
+          <input type="hidden" id="bike-id" value="${editingBike ? editingBike.id : ""}">
+          <div class="field-row cols-3">
+            <div class="field">
+              <label for="bike-year">Year</label>
+              <input type="text" id="bike-year" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="2024" value="${escapeHtml(bike.year)}" required>
+            </div>
+            <div class="field">
+              <label for="bike-brand">Brand</label>
+              <input type="text" id="bike-brand" list="brand-list" placeholder="Start typing…" value="${escapeHtml(bike.brand)}" oninput="onBrandInput()" required>
+              <datalist id="brand-list">${brandOptions}</datalist>
+            </div>
+            <div class="field">
+              <label for="bike-model">Model</label>
+              <input type="text" id="bike-model" list="model-list" placeholder="Start typing…" value="${escapeHtml(bike.model)}" required>
+              <datalist id="model-list">${modelOptions}</datalist>
+            </div>
+          </div>
+          <div class="field">
+            <label for="bike-nickname">Nickname</label>
+            <input type="text" id="bike-nickname" placeholder="e.g. The Green Machine" value="${escapeHtml(bike.nickname)}" required>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:6px;">
+            <button type="submit" class="btn btn-primary ${userBikes.length > 0 ? '' : 'btn-block'}">${editingBike ? "Save Changes" : "Add Bike"}</button>
+            ${userBikes.length > 0 ? `<button type="button" class="btn btn-secondary" onclick="cancelBikeForm()">Cancel</button>` : ""}
+            ${editingBike ? `<button type="button" class="btn btn-danger-outline" onclick="deleteBike('${editingBike.id}')" style="margin-left:auto;">Remove Bike</button>` : ""}
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  let addMoreHtml = "";
+  if (userBikes.length > 0 && activeBikeId !== "new" && !editingBike) {
+    addMoreHtml = `<button class="btn btn-secondary btn-block" onclick="activeBikeId='new'; render();">+ Add Another Bike</button>`;
+  }
+
+  return `
+    <h1>Bikes</h1>
+    <p class="page-sub">Your garage</p>
+    ${bikeListHtml}
+    ${addMoreHtml}
+    ${bikeListHtml || addMoreHtml ? '<hr class="section-divider">' : ""}
+    ${formHtml}
+  `;
+}
+
+window.onBrandInput = () => {
+  const brandInput = document.getElementById("bike-brand");
+  const modelList = document.getElementById("model-list");
+  const brand = brandInput.value;
+  if (BIKE_BRANDS[brand]) {
+    modelList.innerHTML = BIKE_BRANDS[brand].map(m => `<option value="${escapeHtml(m)}">`).join("");
+  } else {
+    modelList.innerHTML = "";
+  }
+};
+
+window.editBike = (bikeId) => {
+  activeBikeId = bikeId;
+  render();
+};
+
+window.cancelBikeForm = () => {
+  activeBikeId = null;
+  render();
+};
+
+window.saveBikeForm = async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("bike-id").value;
+  const year = document.getElementById("bike-year").value.trim();
+  const brand = document.getElementById("bike-brand").value.trim();
+  const model = document.getElementById("bike-model").value.trim();
+  const nickname = document.getElementById("bike-nickname").value.trim();
+
+  if (!year || !brand || !model || !nickname) return;
+
+  if (id) {
+    const bike = userBikes.find(b => b.id === id);
+    bike.year = year;
+    bike.brand = brand;
+    bike.model = model;
+    bike.nickname = nickname;
+  } else {
+    userBikes.push({
+      id: crypto.randomUUID(),
+      year, brand, model, nickname
+    });
+  }
+
+  await saveBikes();
+  activeBikeId = null;
+  showToast("Bike saved");
+  render();
+};
+
+window.deleteBike = async (bikeId) => {
+  if (!confirm("Remove this bike? This won't delete its suspension history.")) return;
+  userBikes = userBikes.filter(b => b.id !== bikeId);
+  await saveBikes();
+  activeBikeId = null;
+  showToast("Bike removed");
+  render();
+};
+
+/* ============ SUSPENSION PAGE ============ */
+
+let suspensionFormState = {
+  bikeId: null,
+  fork: null,   // { name, settings: [{label, value}] }
+  shock: null,  // { name, settings: [{label, value}] }
+  comment: "",
+  history: [],
+  historyLoaded: false
+};
+
+function renderSuspensionPage() {
+  if (userBikes.length === 0) {
+    return `
+      <h1>Suspension</h1>
+      <p class="page-sub">Fork &amp; shock setup</p>
+      <div class="empty-state">
+        Add a bike first under the <strong style="color:var(--accent)">Bikes</strong> tab, then come back here to log your suspension setup.
+      </div>
+    `;
+  }
+
+  if (!suspensionFormState.bikeId) {
+    suspensionFormState.bikeId = userBikes[0].id;
+  }
+
+  const bike = userBikes.find(b => b.id === suspensionFormState.bikeId);
+
+  const bikeOptions = userBikes.map(b =>
+    `<option value="${b.id}" ${b.id === suspensionFormState.bikeId ? "selected" : ""}>${escapeHtml(b.nickname)} (${escapeHtml(b.year)} ${escapeHtml(b.brand)} ${escapeHtml(b.model)})</option>`
+  ).join("");
+
+  return `
+    <h1>Suspension</h1>
+    <p class="page-sub">Fork &amp; shock setup</p>
+
+    <div class="card">
+      <label for="bike-select">Bike</label>
+      <select id="bike-select" onchange="onSuspensionBikeChange(this.value)">
+        ${bikeOptions}
+      </select>
+    </div>
+
+    <div class="add-component-row">
+      ${!suspensionFormState.fork ? `<button class="btn btn-secondary" onclick="addComponent('fork')">+ Add Fork</button>` : ""}
+      ${!suspensionFormState.shock ? `<button class="btn btn-secondary" onclick="addComponent('shock')">+ Add Shock</button>` : ""}
+    </div>
+
+    ${suspensionFormState.fork ? renderComponentPanel('fork', suspensionFormState.fork) : ""}
+    ${suspensionFormState.shock ? renderComponentPanel('shock', suspensionFormState.shock) : ""}
+
+    ${(suspensionFormState.fork || suspensionFormState.shock) ? `
+      <div class="card">
+        <label for="suspension-comment">Comments</label>
+        <textarea id="suspension-comment" placeholder="How did it feel? Any notes for next time…" oninput="suspensionFormState.comment = this.value"></textarea>
+        <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="submitSuspensionLog()">Save Settings</button>
+      </div>
+    ` : ""}
+
+    <hr class="section-divider">
+    <h2 class="card-title" style="font-size:16px; margin-bottom:14px;">History — ${escapeHtml(bike.nickname)}</h2>
+    <div id="history-container">
+      <div class="empty-state">Loading history…</div>
+    </div>
+  `;
+}
+
+function renderComponentPanel(type, comp) {
+  const presets = type === 'fork' ? FORK_PRESETS : SHOCK_PRESETS;
+  const presetOptions = Object.keys(presets).map(name =>
+    `<option value="${escapeHtml(name)}" ${comp.name === name ? "selected" : ""}>`
+  ).join("");
+
+  const settingsHtml = comp.settings.map((s, i) => `
+    <div class="setting-row">
+      <input type="text" placeholder="Setting (e.g. Rebound)" value="${escapeHtml(s.label)}"
+             oninput="updateSetting('${type}', ${i}, 'label', this.value)">
+      <input type="text" class="value-input" placeholder="Value" value="${escapeHtml(s.value)}"
+             oninput="updateSetting('${type}', ${i}, 'value', this.value)">
+      <button type="button" class="remove-row-btn" onclick="removeSetting('${type}', ${i})" aria-label="Remove">×</button>
+    </div>
+  `).join("");
+
+  return `
+    <div class="component-panel">
+      <div class="component-panel-header">
+        <h3>${type === 'fork' ? 'Fork' : 'Shock'}</h3>
+        <button type="button" class="btn btn-danger-outline btn-small" onclick="removeComponent('${type}')">Remove</button>
+      </div>
+      <div class="field">
+        <label>${type === 'fork' ? 'Fork' : 'Shock'} Name</label>
+        <input type="text" list="${type}-list" placeholder="Select or type your own…"
+               value="${escapeHtml(comp.name)}"
+               oninput="onComponentNameInput('${type}', this.value)">
+        <datalist id="${type}-list">${presetOptions}</datalist>
+      </div>
+      <label style="margin-top:14px;">Settings</label>
+      ${settingsHtml}
+      <button type="button" class="add-setting-btn" onclick="addSettingRow('${type}')">+ Add Setting</button>
+    </div>
+  `;
+}
+
+window.onSuspensionBikeChange = async (bikeId) => {
+  suspensionFormState = {
+    bikeId,
+    fork: null,
+    shock: null,
+    comment: "",
+    history: [],
+    historyLoaded: false
+  };
+  render();
+  await loadAndRenderHistory();
+};
+
+window.addComponent = (type) => {
+  const presets = type === 'fork' ? FORK_PRESETS : SHOCK_PRESETS;
+  const firstPreset = Object.keys(presets)[0];
+  suspensionFormState[type] = {
+    name: "",
+    settings: [{ label: "", value: "" }]
+  };
+  render();
+};
+
+window.removeComponent = (type) => {
+  suspensionFormState[type] = null;
+  render();
+};
+
+window.onComponentNameInput = (type, value) => {
+  const presets = type === 'fork' ? FORK_PRESETS : SHOCK_PRESETS;
+  suspensionFormState[type].name = value;
+
+  if (presets[value]) {
+    suspensionFormState[type].settings = presets[value].map(label => ({ label, value: "" }));
+    render();
+  }
+};
+
+window.addSettingRow = (type) => {
+  suspensionFormState[type].settings.push({ label: "", value: "" });
+  render();
+};
+
+window.removeSetting = (type, index) => {
+  suspensionFormState[type].settings.splice(index, 1);
+  if (suspensionFormState[type].settings.length === 0) {
+    suspensionFormState[type].settings.push({ label: "", value: "" });
+  }
+  render();
+};
+
+window.updateSetting = (type, index, field, value) => {
+  suspensionFormState[type].settings[index][field] = value;
+  // no re-render needed, avoid losing focus
+};
+
+window.suspensionFormState = suspensionFormState;
+
+window.submitSuspensionLog = async () => {
+  const { fork, shock, comment, bikeId } = suspensionFormState;
+
+  const cleanComponent = (comp) => {
+    if (!comp || !comp.name.trim()) return null;
+    const settings = comp.settings.filter(s => s.label.trim() || s.value.trim());
+    return { name: comp.name.trim(), settings };
+  };
+
+  const forkData = cleanComponent(fork);
+  const shockData = cleanComponent(shock);
+
+  if (!forkData && !shockData) {
+    showToast("Add at least a fork or shock with a name");
+    return;
+  }
+
+  const logData = {};
+  if (forkData) logData.fork = forkData;
+  if (shockData) logData.shock = shockData;
+  if (comment.trim()) logData.comment = comment.trim();
+
+  try {
+    await addSuspensionLog(bikeId, logData);
+    showToast("Settings saved");
+
+    // Reset form but keep bike selection
+    suspensionFormState.fork = null;
+    suspensionFormState.shock = null;
+    suspensionFormState.comment = "";
+    render();
+    await loadAndRenderHistory();
+  } catch (e) {
+    showToast("Save failed: " + e.message);
+  }
+};
+
+async function loadAndRenderHistory() {
+  const container = document.getElementById("history-container");
+  if (!container) return;
+
+  try {
+    const history = await loadSuspensionHistory(suspensionFormState.bikeId);
+    suspensionFormState.history = history;
+    suspensionFormState.historyLoaded = true;
+
+    if (history.length === 0) {
+      container.innerHTML = `<div class="empty-state">No saved settings yet. Add a fork or shock above to start your log.</div>`;
+      return;
+    }
+
+    container.innerHTML = history.map(entry => `
+      <div class="ledger-entry">
+        <div class="ledger-date">${formatDate(entry.timestamp)}</div>
+        ${entry.fork ? renderLedgerSpec("Fork", entry.fork) : ""}
+        ${entry.shock ? renderLedgerSpec("Shock", entry.shock) : ""}
+        ${entry.comment ? `<div class="ledger-comment">"${escapeHtml(entry.comment)}"</div>` : ""}
+      </div>
+    `).join("");
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">Couldn't load history: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderLedgerSpec(label, comp) {
+  const rows = comp.settings.filter(s => s.label || s.value).map(s => `
+    <div class="spec-line">
+      <span class="spec-label">${escapeHtml(s.label || "—")}</span>
+      <span>${escapeHtml(s.value || "—")}</span>
+    </div>
+  `).join("");
+
+  return `
+    <div class="ledger-spec">
+      <div class="spec-line" style="font-weight:600; color:var(--accent); border-bottom:1px solid var(--line); padding-bottom:4px; margin-bottom:4px;">
+        <span>${label}</span><span>${escapeHtml(comp.name)}</span>
+      </div>
+      ${rows}
+    </div>
+  `;
+}
+
+/* ============ AFTER RENDER HOOKS ============ */
+
+function afterRender() {
+  if (currentRoute === "suspension" && userBikes.length > 0) {
+    loadAndRenderHistory();
+  }
+}
+
+</script>
+</body>
+</html>
