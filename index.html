@@ -540,6 +540,9 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- TEMPORARY DEBUG LOG -->
+<div id="debug-log" style="position:fixed; bottom:0; left:0; right:0; max-height:45vh; overflow-y:auto; background:rgba(0,0,0,0.9); color:#c6f24e; font-family:monospace; font-size:11px; padding:8px; z-index:9999; display:none; white-space:pre-wrap;"></div>
+
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -632,6 +635,15 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove("show"), 2200);
 }
 
+// TEMPORARY: visible debug log for diagnosing mobile auth.
+function debugLog(msg) {
+  const el = document.getElementById("debug-log");
+  if (!el) return;
+  el.style.display = "block";
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -683,19 +695,56 @@ async function addSuspensionLog(bikeId, data) {
 
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+// --- TEMPORARY DIAGNOSTICS ---
+debugLog("Page loaded. IS_MOBILE=" + IS_MOBILE);
+debugLog("URL: " + location.href);
+
+try {
+  localStorage.setItem("_test", "1");
+  localStorage.removeItem("_test");
+  debugLog("localStorage: OK");
+} catch (e) {
+  debugLog("localStorage: BLOCKED - " + e.message);
+}
+
+try {
+  if (window.indexedDB) {
+    const req = indexedDB.open("_test_db");
+    req.onsuccess = () => { debugLog("indexedDB: OK"); req.result.close(); indexedDB.deleteDatabase("_test_db"); };
+    req.onerror = () => debugLog("indexedDB: ERROR opening");
+    req.onblocked = () => debugLog("indexedDB: BLOCKED");
+  } else {
+    debugLog("indexedDB: not available");
+  }
+} catch (e) {
+  debugLog("indexedDB: EXCEPTION - " + e.message);
+}
+
+debugLog("document.cookie length: " + document.cookie.length);
+// --- END TEMPORARY DIAGNOSTICS ---
+
 // Pick up the result of a redirect-based sign-in, if one is pending
 // (relevant on mobile, where signInWithRedirect is used).
-getRedirectResult(auth).catch((e) => {
-  console.error("Redirect sign-in error:", e.code, e.message);
+debugLog("Calling getRedirectResult...");
+getRedirectResult(auth).then((result) => {
+  if (result && result.user) {
+    debugLog("getRedirectResult: SUCCESS, user=" + result.user.email);
+  } else {
+    debugLog("getRedirectResult: returned null");
+  }
+}).catch((e) => {
+  debugLog("getRedirectResult ERROR: " + e.code + " - " + e.message);
   showToast("Sign-in error: " + (e.code || e.message));
 });
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    debugLog("onAuthStateChanged: user=" + user.email);
     currentUser = user;
     await loadBikes();
     render();
   } else {
+    debugLog("onAuthStateChanged: no user");
     currentUser = null;
     userBikes = [];
     render();
@@ -703,14 +752,17 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.handleSignIn = async () => {
+  debugLog("handleSignIn called. IS_MOBILE=" + IS_MOBILE);
   try {
     if (IS_MOBILE) {
+      debugLog("Calling signInWithRedirect...");
       await signInWithRedirect(auth, provider);
+      debugLog("signInWithRedirect call returned (should be navigating)");
     } else {
       await signInWithPopup(auth, provider);
     }
   } catch (e) {
-    console.error("Sign-in error:", e.code, e.message);
+    debugLog("handleSignIn ERROR: " + e.code + " - " + e.message);
     if (e.code === "auth/popup-blocked") {
       showToast("Popup blocked — allow popups for this site and try again");
     } else if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
